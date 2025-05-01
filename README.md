@@ -34,7 +34,7 @@ HUGGINGFACE_API_KEY=your_huggingface_api_key
 
 1. Run the Streamlit app:
 ```bash
-streamlit run app.py
+streamlit run enhanced_campus_copilot.py
 ```
 
 2. Open your browser and go to `http://localhost:8501`
