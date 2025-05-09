@@ -30,16 +30,21 @@ if 'chai_break_count' not in st.session_state:
 if 'last_chai_time' not in st.session_state:
     st.session_state.last_chai_time = None
 
-# Simulated FAQ data
-faq_data = {
-    "when is the next exam?": "Exams start on May 10, 2025.",
-    "what is the library schedule?": "Library is open from 8 AM to 10 PM daily.",
-    "where is the hostel?": "Hostel is located at the north end of campus.",
-    "library hours": "Library is open from 8 AM to 10 PM on weekdays, 10 AM to 8 PM on weekends.",
-    "fee payment": "Fee payment deadline is May 15, 2025. You can pay online through the student portal.",
-    "wifi password": "The campus WiFi password is updated monthly. Check the IT department's notice board.",
-    "hostel curfew": "Hostel curfew is at 10 PM on weekdays and 11 PM on weekends."
-}
+# Load FAQs from JSON file
+def load_faqs(file_path="faqs.json"):
+    try:
+        with open(file_path, "r") as file:
+            faqs = json.load(file)
+            # Convert the list of FAQs into a dictionary for easier lookup
+            return {faq["question"].lower(): faq["answer"] for faq in faqs}
+    except Exception as e:
+        st.error(f"Error loading FAQs: {e}")
+        return {}
+
+# Load FAQs into a global variable
+faq_data = load_faqs()
+
+
 # Simulated timetable
 timetable = {
     "Assignment - Data Structures": "May 2, 2025, 10 PM",
@@ -57,7 +62,7 @@ form_assistance = {
 
 # Initialize LLM (Mistral via Hugging Face)
 os.environ["HUGGINGFACEHUB_API_TOKEN"] = HUGGINGFACE_API_KEY
-llm = HuggingFaceHub(repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1", model_kwargs={"temperature": 0.7})
+llm = HuggingFaceHub(repo_id="google/flan-t5-large", model_kwargs={"temperature": 0.7})
 
 # Create conversation chain with memory
 conversation = ConversationChain(
@@ -66,33 +71,27 @@ conversation = ConversationChain(
     verbose=True
 )
 
-# Function to handle FAQ queries
 def answer_faq(query):
     query = query.lower().strip()
     
     # Check for exact or partial matches in FAQ data
-    for q, a in faq_data.items():
-        if q in query:
-            return a
+    for question, answer in faq_data.items():
+        if question in query:
+            return answer
     
-    # Check for timetable queries
-    if any(word in query.lower() for word in ["assignment", "exam", "deadline", "due", "schedule"]):
-        return get_timetable_info(query)
-    
-    # Check for form assistance queries
-    if any(word in query.lower() for word in ["kyc", "tax", "visa", "form"]):
-        return get_form_assistance(query)
-    
-    # Fallback to LLM
+    # Fallback to LLM if no match is found
     prompt = f"""You are a college assistant named CampusCopilot. 
     Answer based on this FAQ data: {json.dumps(faq_data)}
-    And this timetable: {json.dumps(timetable)}
     If you don't know the answer, say 'I don't have that information yet, but I can help you with other college-related questions!'
     Query: {query}"""
     
     try:
-        response = llm(prompt)
-        return response
+        response = llm(prompt, raw_response=True)
+        # The response is a requests.Response object, so get the text
+        if hasattr(response, "text"):
+            return response.text
+        else:
+            return str(response)
     except Exception as e:
         return f"I'm having trouble connecting to my brain. Please try again later. Error: {str(e)}"
 
@@ -323,7 +322,7 @@ def main():
     st.set_page_config(page_title="CampusCopilot", page_icon="🎓", layout="wide")
     
     # Sidebar for navigation
-    st.sidebar.image("https://via.placeholder.com/150x150.png?text=CC", width=150)
+    st.sidebar.image("https://pixabay.com/vectors/created-by-ai-student-bachelor-8672131/", width=150)
     st.sidebar.title("CampusCopilot")
     st.sidebar.write("Your AI wingman for college life!")
     
